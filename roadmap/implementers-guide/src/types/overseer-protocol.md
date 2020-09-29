@@ -345,6 +345,12 @@ enum RuntimeApiRequest {
 		OccupiedCoreAssumption,
 		ResponseChannel<Option<ValidationData>>,
 	),
+	/// Sends back `true` if the commitments pass all acceptance criteria checks.
+	CheckCandidateCommitments(
+		ParaId,
+		CandidateCommitments,
+		RuntimeApiSender<bool>,
+	),
 	/// Get information about all availability cores.
 	AvailabilityCores(ResponseChannel<Vec<CoreState>>),
 	/// Get a committed candidate receipt for all candidates pending availability.
