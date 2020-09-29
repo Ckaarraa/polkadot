@@ -364,9 +364,7 @@ impl<T: Trait> Module<T> {
 
 		let validators = Validators::get();
 		let parent_hash = <frame_system::Module<T>>::parent_hash();
-		let config = <configuration::Module<T>>::config();
-		let now = <frame_system::Module<T>>::block_number();
-		let relay_parent_number = now - One::one();
+		let check_cx = CandidateCheckContext::<T>::new();
 
 		// do all checks before writing storage.
 		let core_indices = {
@@ -408,59 +406,12 @@ impl<T: Trait> Module<T> {
 					candidate.descriptor().relay_parent == parent_hash,
 					Error::<T>::CandidateNotInParentContext,
 				);
-
-				// if any, the code upgrade attempt is allowed.
-				let valid_upgrade_attempt =
-					candidate.candidate.commitments.new_validation_code.is_none() ||
-					<paras::Module<T>>::last_code_upgrade(para_id, true)
-						.map_or(
-							true,
-							|last| last <= relay_parent_number &&
-								relay_parent_number.saturating_sub(last)
-									>= config.validation_upgrade_frequency,
-						);
-
-				ensure!(
-					valid_upgrade_attempt,
-					Error::<T>::PrematureCodeUpgrade,
-				);
 				ensure!(
 					candidate.descriptor().check_collator_signature().is_ok(),
 					Error::<T>::NotCollatorSigned,
 				);
 
-				// check if the candidate passes the messaging acceptance criteria
-				ensure!(
-					<router::Module<T>>::check_processed_downward_messages(
-						para_id,
-						candidate.candidate.commitments.processed_downward_messages,
-					),
-					Error::<T>::IncorrectDownwardMessageHandling,
-				);
-				ensure!(
-					<router::Module<T>>::check_upward_messages(
-						&config,
-						para_id,
-						&candidate.candidate.commitments.upward_messages,
-					),
-					Error::<T>::InvalidUpwardMessages,
-				);
-				ensure!(
-					<router::Module<T>>::check_hrmp_watermark(
-						para_id,
-						relay_parent_number,
-						// TODO: Hmm, we should settle on a single represenation of T::BlockNumber
-						T::BlockNumber::from(candidate.candidate.commitments.hrmp_watermark),
-					),
-					Error::<T>::HrmpWatermarkMishandling,
-				);
-				ensure!(
-					<router::Module<T>>::check_outbound_hrmp(
-						para_id,
-						&candidate.candidate.commitments.horizontal_messages,
-					),
-					Error::<T>::InvalidOutboundHrmp,
-				);
+				check_cx.check_commitments(para_id, &candidate.candidate.commitments)?;
 
 				for (i, assignment) in scheduled[skip..].iter().enumerate() {
 					check_assignment_in_order(assignment)?;
@@ -539,7 +490,7 @@ impl<T: Trait> Module<T> {
 					false,
 					Error::<T>::UnscheduledCandidate,
 				);
-			};
+			}
 
 			// check remainder of scheduled cores, if any.
 			for assignment in scheduled[skip..].iter() {
@@ -571,13 +522,23 @@ impl<T: Trait> Module<T> {
 				core,
 				descriptor,
 				availability_votes,
-				relay_parent_number,
-				backed_in_number: now,
+				relay_parent_number: check_cx.relay_parent_number,
+				backed_in_number: check_cx.now,
 			});
 			<PendingAvailabilityCommitments>::insert(&para_id, commitments);
 		}
 
 		Ok(core_indices)
+	}
+
+	/// Run the acceptance criteria checks on the given candidate commitments.
+	///
+	/// Returns an 'Err` if any of the checks doesn't pass.
+	pub(crate) fn check_candidate_commitments(
+		para_id: ParaId,
+		commitments: CandidateCommitments,
+	) -> Result<(), DispatchError> {
+		CandidateCheckContext::<T>::new().check_commitments(para_id, &commitments)
 	}
 
 	fn enact_candidate(
@@ -711,6 +672,74 @@ const fn availability_threshold(n_validators: usize) -> usize {
 	let mut threshold = (n_validators * 2) / 3;
 	threshold += (n_validators * 2) % 3;
 	threshold
+}
+
+/// A collection of data required for checking a candidate.
+struct CandidateCheckContext<T: Trait> {
+	config: configuration::HostConfiguration<T::BlockNumber>,
+	now: T::BlockNumber,
+	relay_parent_number: T::BlockNumber,
+}
+
+impl<T: Trait> CandidateCheckContext<T> {
+	fn new() -> Self {
+		let now = <frame_system::Module<T>>::block_number();
+		Self {
+			config: <configuration::Module<T>>::config(),
+			now,
+			relay_parent_number: now - One::one(),
+		}
+	}
+
+	/// Check the given candidate commitments if it passes the acceptance criteria.
+	fn check_commitments(
+		&self,
+		para_id: ParaId,
+		commitments: &CandidateCommitments,
+	) -> Result<(), DispatchError> {
+		// if any, the code upgrade attempt is allowed.
+		let valid_upgrade_attempt = match commitments.new_validation_code {
+			Some(_) => <paras::Module<T>>::last_code_upgrade(para_id, true).map_or(true, |last| {
+				last <= self.relay_parent_number
+					&& self.relay_parent_number.saturating_sub(last)
+						>= self.config.validation_upgrade_frequency
+			}),
+			None => true, // no upgrade no problem
+		};
+		ensure!(valid_upgrade_attempt, Error::<T>::PrematureCodeUpgrade);
+
+		// check if the candidate passes the messaging acceptance criteria
+		ensure!(
+			<router::Module<T>>::check_processed_downward_messages(
+				para_id,
+				commitments.processed_downward_messages,
+			),
+			Error::<T>::IncorrectDownwardMessageHandling,
+		);
+		ensure!(
+			<router::Module<T>>::check_upward_messages(
+				&self.config,
+				para_id,
+				&commitments.upward_messages,
+			),
+			Error::<T>::InvalidUpwardMessages,
+		);
+		ensure!(
+			<router::Module<T>>::check_hrmp_watermark(
+				para_id,
+				self.relay_parent_number,
+				// TODO: Hmm, we should settle on a single represenation of T::BlockNumber
+				T::BlockNumber::from(commitments.hrmp_watermark),
+			),
+			Error::<T>::HrmpWatermarkMishandling,
+		);
+		ensure!(
+			<router::Module<T>>::check_outbound_hrmp(para_id, &commitments.horizontal_messages),
+			Error::<T>::InvalidOutboundHrmp,
+		);
+
+		Ok(())
+	}
 }
 
 #[cfg(test)]
@@ -1764,7 +1793,7 @@ mod tests {
 		let thread_a = ParaId::from(3);
 
 		// The block number of the relay-parent for testing.
-        const RELAY_PARENT_NUM: BlockNumber = 4;
+		const RELAY_PARENT_NUM: BlockNumber = 4;
 
 		let paras = vec![(chain_a, true), (chain_b, true), (thread_a, false)];
 		let validators = vec![
