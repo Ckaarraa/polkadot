@@ -22,7 +22,7 @@ use primitives::v1::{
 	ValidatorId, ValidatorIndex, GroupRotationInfo, CoreState, ValidationData,
 	Id as ParaId, OccupiedCoreAssumption, SessionIndex, ValidationCode,
 	CommittedCandidateReceipt, ScheduledCore, OccupiedCore, CoreOccupied, CoreIndex,
-	GroupIndex, CandidateEvent, PersistedValidationData, AuthorityDiscoveryId,
+	GroupIndex, CandidateEvent, PersistedValidationData, AuthorityDiscoveryId, CandidateCommitments,
 };
 use sp_runtime::traits::Zero;
 use frame_support::debug;
@@ -216,6 +216,15 @@ pub fn persisted_validation_data<T: initializer::Trait>(
 	)
 }
 
+/// Implementation for the `check_candidate_commitments` function of the runtime API.
+pub fn check_candidate_commitments<T: initializer::Trait>(
+	para_id: ParaId,
+	commitments: CandidateCommitments,
+) -> bool {
+	// we strip detailed information here for the sake of API simplicity and backwards compatibility.
+	<inclusion::Module<T>>::check_candidate_commitments(para_id, commitments).is_ok()
+}
+
 /// Implementation for the `session_index_for_child` function of the runtime API.
 pub fn session_index_for_child<T: initializer::Trait>() -> SessionIndex {
 	// Just returns the session index from `inclusion`. Runtime APIs follow
@@ -268,7 +277,7 @@ where
 }
 
 /// Get the `AuthorityDiscoveryId`s corresponding to the given `ValidatorId`s.
-/// Currently this request is limited to validators in the current session. 
+/// Currently this request is limited to validators in the current session.
 ///
 /// We assume that every validator runs authority discovery,
 /// which would allow us to establish point-to-point connection to given validators.

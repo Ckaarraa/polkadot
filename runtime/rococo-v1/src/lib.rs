@@ -25,8 +25,8 @@ use codec::Encode;
 use primitives::v1::{
 	AccountId, AccountIndex, Balance, BlockNumber, Hash, Nonce, Signature, Moment,
 	GroupRotationInfo, CoreState, Id, ValidationData, ValidationCode, CandidateEvent,
-	ValidatorId, ValidatorIndex, CommittedCandidateReceipt, OccupiedCoreAssumption,
-	PersistedValidationData,
+	ValidatorId, ValidatorIndex, CandidateCommitments, CommittedCandidateReceipt,
+	OccupiedCoreAssumption, PersistedValidationData,
 };
 use runtime_common::{
 	SlowAdjustingFeeUpdate,
@@ -187,6 +187,13 @@ sp_api::impl_runtime_apis! {
 		fn persisted_validation_data(para_id: Id, assumption: OccupiedCoreAssumption)
 			-> Option<PersistedValidationData<BlockNumber>> {
 			runtime_api_impl::persisted_validation_data::<Runtime>(para_id, assumption)
+		}
+
+		fn check_candidate_commitments(
+			para_id: Id,
+			commitments: CandidateCommitments<BlockNumber>
+		) -> bool {
+			runtime_api_impl::check_candidate_commitments::<Runtime>(para_id, commitments)
 		}
 
 		fn session_index_for_child() -> SessionIndex {

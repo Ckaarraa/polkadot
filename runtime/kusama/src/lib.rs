@@ -27,6 +27,7 @@ use primitives::v1::{
 	AccountId, AccountIndex, Balance, BlockNumber, Hash, Nonce, Signature, Moment, ValidatorId,
 	ValidatorIndex, CoreState, Id, CandidateEvent, ValidationData, OccupiedCoreAssumption,
 	CommittedCandidateReceipt, PersistedValidationData, GroupRotationInfo, ValidationCode,
+	CandidateCommitments,
 };
 use runtime_common::{
 	claims, SlowAdjustingFeeUpdate,
@@ -1120,6 +1121,13 @@ sp_api::impl_runtime_apis! {
 		fn persisted_validation_data(_: Id, _: OccupiedCoreAssumption)
 			-> Option<PersistedValidationData<BlockNumber>> {
 			None
+		}
+
+		fn check_candidate_commitments(
+			_: Id,
+			_: CandidateCommitments<BlockNumber>
+		) -> bool {
+			false
 		}
 
 		fn session_index_for_child() -> SessionIndex {

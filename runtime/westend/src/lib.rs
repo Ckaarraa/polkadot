@@ -834,6 +834,13 @@ sp_api::impl_runtime_apis! {
 			None
 		}
 
+		fn check_candidate_commitments(
+			_: Id,
+			_: primitives::v1::CandidateCommitments<BlockNumber>
+		) -> bool {
+			false
+		}
+
 		fn session_index_for_child() -> SessionIndex {
 			0
 		}

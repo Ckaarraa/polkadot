@@ -649,7 +649,7 @@ pub enum CandidateEvent<H = Hash> {
 
 sp_api::decl_runtime_apis! {
 	/// The API for querying the state of parachains on-chain.
-	pub trait ParachainHost<H: Decode = Hash, N: Decode = BlockNumber> {
+	pub trait ParachainHost<H: Decode = Hash, N: Decode + Encode = BlockNumber> {
 		/// Get the current validators.
 		fn validators() -> Vec<ValidatorId>;
 
@@ -677,6 +677,10 @@ sp_api::decl_runtime_apis! {
 		/// and the para already occupies a core.
 		fn persisted_validation_data(para_id: Id, assumption: OccupiedCoreAssumption)
 			-> Option<PersistedValidationData<N>>;
+
+		// TODO: Adding a Runtime API should be backwards compatible... right?
+		/// Checks if the given candidate commitments pass the acceptance criteria.
+		fn check_candidate_commitments(para_id: Id, commitments: CandidateCommitments<N>) -> bool;
 
 		/// Returns the session index expected at a child of the block.
 		///

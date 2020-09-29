@@ -36,7 +36,7 @@ use polkadot_primitives::v1::{
 	CoreState, ErasureChunk, GroupRotationInfo, Hash, Id as ParaId,
 	OccupiedCoreAssumption, PersistedValidationData, PoV, SessionIndex, SignedAvailabilityBitfield,
 	TransientValidationData, ValidationCode, ValidatorId, ValidationData, ValidatorIndex,
-	ValidatorSignature,
+	ValidatorSignature, CandidateCommitments,
 };
 use std::sync::Arc;
 
@@ -391,6 +391,12 @@ pub enum RuntimeApiRequest {
 		ParaId,
 		OccupiedCoreAssumption,
 		RuntimeApiSender<Option<ValidationData>>,
+	),
+	/// Sends back `true` if the commitments pass all acceptance criteria checks.
+	CheckCandidateCommitments(
+		ParaId,
+		CandidateCommitments,
+		RuntimeApiSender<bool>,
 	),
 	/// Get the session index that a child of the block will have.
 	SessionIndexForChild(RuntimeApiSender<SessionIndex>),
