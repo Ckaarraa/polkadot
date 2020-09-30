@@ -277,6 +277,9 @@ the parachain executed the message.
         1. Set `limit_used_places` to `max_places`
         1. Set `limit_message_size` to `max_message_size`
         1. Set `limit_used_bytes` to `config.hrmp_channel_max_size`
+    1. Send a downward message to `recipient` notifying about an inbound HRMP channel request.
+        - The DM is sent using `queue_downward_message`.
+        - The DM is represented by an appropriate XCM message.
 * `hrmp_accept_open_channel(sender)`:
     1. Check that there is an existing request between (`sender`, `origin`) in `HrmpOpenChannelRequests`
         1. Check that it is not confirmed.
@@ -289,12 +292,19 @@ the parachain executed the message.
     1. Reserve the deposit for the `origin` according to `config.hrmp_recipient_deposit`
     1. For the request in `HrmpOpenChannelRequests` identified by `(sender, P)`, set `confirmed` flag to `true`.
     1. Increase `HrmpAcceptedChannelRequestCount` by 1 for `origin`.
+    1. Send a downward message to `sender` notifying that the channel request was accepted.
+        - The DM is sent using `queue_downward_message`.
+        - The DM is represented by an appropriate XCM message.
 * `hrmp_close_channel(ch)`:
     1. Check that `origin` is either `ch.sender` or `ch.recipient`
     1. Check that `HrmpChannels` for `ch` exists.
     1. Check that `ch` is not in the `HrmpCloseChannelRequests` set.
     1. If not already there, insert a new entry `Some(())` to `HrmpCloseChannelRequests` for `ch`
     and append `ch` to `HrmpCloseChannelRequestsList`.
+    1. Send a downward message to the opposite party notifying about the channel closing.
+        - The DM is sent using `queue_downward_message`.
+        - The DM is represented by an appropriate XCM message.
+        - The opposite party is `ch.sender` if `origin` is `ch.recipient` and `ch.recipient` if `origin` is `ch.sender`.
 
 ## Session Change
 
