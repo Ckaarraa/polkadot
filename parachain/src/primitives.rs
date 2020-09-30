@@ -125,6 +125,14 @@ impl Id {
 
 	/// Returns `true` if this parachain runs with system-level privileges.
 	pub fn is_system(&self) -> bool { self.0 < USER_INDEX_START }
+
+	/// Returns the para id represented as a u32.
+	///
+	/// An escape hatch meant to be used only in exceptional situations. For instance, when you need
+	/// to put the ID on wire but have no luxury of referencing this type directly.
+	pub fn reveal_inner_u32(self) -> u32 {
+		self.0
+	}
 }
 
 impl sp_std::ops::Add<u32> for Id {
